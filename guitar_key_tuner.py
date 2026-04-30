@@ -331,3 +331,91 @@ class OutputWriter:
                 "motor_instructions": string_rows,
             }, f, indent=2)
         print(f"  Saved: {path}")
+
+# =============================================================================
+# CLASS: GuitarTuner
+# =============================================================================
+
+class GuitarTuner:
+    """
+    Main pipeline class, owns and coordinates all other classes.
+    """
+
+    def __init__(self):
+        self.ui       = UserInterface()
+        self.spotify  = SpotifyWebAPI()
+        self.soundnet = SoundNetAPI()
+        self.theory   = MusicTheoryEngine()
+        self.writer   = OutputWriter()
+
+    def run(self):
+        self.ui.print_banner()
+        print("\n  Connecting to Spotify...", end="", flush=True)
+        self.spotify.authenticate()
+        print(" OK")
+
+        while True:
+            song   = self.ui.get_song_input()
+            artist = self.ui.get_artist_input()
+            query  = f"{song} {artist}".strip()
+            print(f"\n  Searching Spotify for '{query}'...", end="", flush=True)
+
+            try:
+                results = self.spotify.search(query, limit=5)
+            except Exception as e:
+                print(f"\n  [⚠] Search error: {e}")
+                continue
+
+            if not results and artist:
+                print(" no results")
+                print(f"  [⚠] Artist '{artist}' not found — retrying without artist...")
+                try:
+                    results = self.spotify.search(song, limit=5)
+                except Exception as e:
+                    print(f"\n  [⚠] Search error: {e}")
+                    continue
+
+            if not results:
+                print(f"\n  [⚠] No results found for '{song}'. Check spelling.\n")
+                continue
+
+            print(f" {len(results)} result(s) found")
+            chosen = self.ui.pick_track(results)
+            if chosen is None:
+                print("\n  OK, let's try again.\n")
+                continue
+
+            if not self.ui.confirm_track(chosen):
+                print("\n  OK, let's try again.\n")
+                continue
+
+            print("\n  Fetching key and tempo from SoundNet...", end="", flush=True)
+            analysis = self.soundnet.get_analysis(chosen["id"])
+
+            if analysis and analysis["key"]:
+                print(" OK")
+                key_str = self.theory.build_key_string(analysis["key"], analysis["mode"])
+                pitch   = self.theory.parse_key_to_pitch(analysis["key"])
+                tempo   = analysis["tempo"]
+            else:
+                print(" not found")
+                print("  [⚠] Key unavailable — defaulting to E standard.")
+                pitch   = MusicTheoryEngine.STANDARD_KEY_INDEX
+                key_str = "E Major (default)"
+                tempo   = 0
+
+            semitones   = self.theory.semitones_to_drop(pitch)
+            string_rows = self.theory.calculate_string_rows(semitones)
+            self.ui.print_tuning_table(key_str, semitones, tempo, string_rows)
+            self.writer.write(chosen, key_str, semitones, tempo, string_rows)
+            print("\n  Done!\n")
+            break
+
+
+# =============================================================================
+# ENTRY POINT
+# =============================================================================
+
+if __name__ == "__main__":
+    tuner = GuitarTuner()
+    tuner.run()
