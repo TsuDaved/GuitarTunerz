@@ -194,3 +194,79 @@ class MusicTheoryEngine:
                 "direction":   direction,
             })
         return rows
+    
+# =============================================================================
+# CLASS: UserInterface
+# =============================================================================
+
+class UserInterface:
+    """
+    Handles all terminal input and output interactions with the user.
+    """
+
+    @staticmethod
+    def print_banner():
+        print("\n" + "=" * 54)
+        print("   Guitar Tunerz Project - Song Key Detector")
+        print("=" * 54)
+
+    @staticmethod
+    def get_song_input():
+        while True:
+            song = input("\n  Song name : ").strip()
+            ok, err = UserInterface._validate(song)
+            if ok:
+                return song
+            print(f"  [!] {err}")
+
+    @staticmethod
+    def get_artist_input():
+        return input("  Artist    : (press Enter to skip) ").strip()
+
+    @staticmethod
+    def pick_track(candidates):
+        print("\n  Spotify found these matches:\n")
+        for i, t in enumerate(candidates, 1):
+            print(f"    [{i}] \"{t['name']}\"  -  {t['artist']}  (Album: {t['album']})")
+        print("    [0] None of these - search again\n")
+        while True:
+            raw = input(f"  Your choice [0-{len(candidates)}]: ").strip()
+            if raw.isdigit() and 0 <= int(raw) <= len(candidates):
+                n = int(raw)
+                return candidates[n - 1] if n > 0 else None
+            print(f"  [⚠] Please enter a number between 0 and {len(candidates)}.")
+
+    @staticmethod
+    def confirm_track(track):
+        answer = input(
+            f"\n  Use \"{track['name']}\" by {track['artist']}? [Y/n]: "
+        ).strip().lower()
+        return answer in ("", "y", "yes")
+
+    @staticmethod
+    def print_tuning_table(key_str, semitones, tempo, string_rows):
+        print(f"\n  {'='*50}")
+        print(f"  Key    : {key_str}")
+        if tempo:
+            print(f"  Tempo  : {tempo} BPM")
+        print(f"  Drop   : {semitones} semitone(s) from E standard")
+        print(f"  {'='*50}")
+        print(f"\n  {'String':<6} {'Std Hz':>8}  {'Target Hz':>10}  {'Cents':>8}  Motor")
+        print(f"  {'-'*50}")
+        for s in string_rows:
+            print(
+                f"  {s['string']:<6} {s['standard_hz']:>8.2f}  "
+                f"{s['target_hz']:>10.2f}  {s['cents']:>+8.1f}  "
+                f"{s['direction'].upper()}"
+            )
+
+    @staticmethod
+    def _validate(text):
+        s = text.strip()
+        if not s:
+            return False, "Cannot be empty."
+        if len(s) < 2:
+            return False, "Too short (minimum 2 characters)."
+        if not any(c.isalpha() for c in s):
+            return False, "Must contain at least one letter."
+        return True, ""
