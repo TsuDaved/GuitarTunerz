@@ -131,3 +131,66 @@ class SoundNetAPI:
             }
         except Exception:
             return None
+        
+# =============================================================================
+# CLASS: MusicTheoryEngine
+# =============================================================================
+
+class MusicTheoryEngine:
+    """
+    Handles all music theory calculations needed to convert a detected
+    key into per-string frequency targets for the motor controller.
+    """
+
+    STANDARD_KEY_INDEX = 4
+    MAX_DROP           = 4
+    KEY_DISPLAY = ["C","C#","D","D#","E","F","F#","G","G#","A","A#","B"]
+
+    @staticmethod
+    def parse_key_to_pitch(key_str):
+        if not key_str:
+            return MusicTheoryEngine.STANDARD_KEY_INDEX
+        normalised = key_str.strip().capitalize()
+        if len(normalised) > 1 and normalised[1] in ("#", "b"):
+            normalised = normalised[0].upper() + normalised[1]
+        return NOTE_TO_PITCH.get(normalised, MusicTheoryEngine.STANDARD_KEY_INDEX)
+
+    @staticmethod
+    def semitones_to_drop(target_pitch):
+        diff = target_pitch - MusicTheoryEngine.STANDARD_KEY_INDEX
+        if diff > 0:
+            diff -= 12
+        return max(diff, -MusicTheoryEngine.MAX_DROP)
+
+    @staticmethod
+    def target_freq(base_hz, semitones):
+        return round(base_hz * (2 ** (semitones / 12)), 2)
+
+    @staticmethod
+    def to_cents(f1, f2):
+        return round(1200 * math.log2(f2 / f1), 1)
+
+    @staticmethod
+    def build_key_string(raw_key, raw_mode):
+        pitch    = MusicTheoryEngine.parse_key_to_pitch(raw_key)
+        mode_str = "Major" if "major" in raw_mode.lower() else "Minor"
+        return f"{MusicTheoryEngine.KEY_DISPLAY[pitch]} {mode_str}"
+
+    @staticmethod
+    def calculate_string_rows(semitones):
+        rows = []
+        for name, std in STANDARD_TUNING.items():
+            tgt       = MusicTheoryEngine.target_freq(std, semitones)
+            cents     = MusicTheoryEngine.to_cents(std, tgt)
+            direction = ("loosen"    if semitones < 0 else
+                         "tighten"   if semitones > 0 else
+                         "no change")
+            rows.append({
+                "string":      name,
+                "standard_hz": std,
+                "target_hz":   tgt,
+                "cents":       cents,
+                "semitones":   semitones,
+                "direction":   direction,
+            })
+        return rows
