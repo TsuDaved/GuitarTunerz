@@ -270,3 +270,64 @@ class UserInterface:
         if not any(c.isalpha() for c in s):
             return False, "Must contain at least one letter."
         return True, ""
+    
+# =============================================================================
+# CLASS: OutputWriter
+# =============================================================================
+
+class OutputWriter:
+    """
+    Handles writing the tuning results to disk as .txt and .json files.
+    """
+
+    @staticmethod
+    def write(track, key_str, semitones, tempo, string_rows):
+        safe = "".join(c for c in track["name"] if c.isalnum() or c in " _-")
+        safe = safe.strip().replace(" ", "_")
+        now  = datetime.now().isoformat(timespec="seconds")
+        OutputWriter._write_txt(track, key_str, semitones, tempo, string_rows, safe, now)
+        OutputWriter._write_json(track, key_str, semitones, tempo, string_rows, safe, now)
+
+    @staticmethod
+    def _write_txt(track, key_str, semitones, tempo, string_rows, safe, now):
+        lines = [
+            "=" * 54,
+            "  Guitar Tunerz - Key Detection Report",
+            "=" * 54,
+            f"  Generated : {now}",
+            f"  Track     : {track['name']}",
+            f"  Artist    : {track['artist']}",
+            f"  Album     : {track['album']}",
+            "-" * 54,
+            f"  Key       : {key_str}",
+            f"  Tempo     : {tempo} BPM" if tempo else "  Tempo     : Unavailable",
+            f"  Drop      : {semitones} semitone(s) from E standard",
+            "-" * 54,
+            "  STRING MOTOR INSTRUCTIONS",
+            "-" * 54,
+        ]
+        for s in string_rows:
+            lines.append(
+                f"  {s['string']:<4} | "
+                f"{s['standard_hz']:.2f} Hz -> {s['target_hz']:.2f} Hz | "
+                f"{s['cents']:+.1f} cents | Motor: {s['direction'].upper()}"
+            )
+        lines += ["=" * 54, ""]
+        path = f"{safe}_tuning.txt"
+        with open(path, "w") as f:
+            f.write("\n".join(lines))
+        print(f"\n  Saved: {path}")
+
+    @staticmethod
+    def _write_json(track, key_str, semitones, tempo, string_rows, safe, now):
+        path = f"{safe}_tuning.json"
+        with open(path, "w") as f:
+            json.dump({
+                "generated_at": now,
+                "track": {"name": track["name"], "artist": track["artist"]},
+                "key":    key_str,
+                "tempo":  tempo,
+                "semitones_from_standard": semitones,
+                "motor_instructions": string_rows,
+            }, f, indent=2)
+        print(f"  Saved: {path}")
