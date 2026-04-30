@@ -91,3 +91,43 @@ class SpotifyWebAPI:
             }
             for item in items
         ]
+# =============================================================================
+# CLASS: SoundNetAPI
+# =============================================================================
+
+class SoundNetAPI:
+    """
+    Communicates with the SoundNet Track Analysis API via RapidAPI.
+    Returns the song's key, mode, and tempo from the database.
+    """
+
+    HOST     = "track-analysis.p.rapidapi.com"
+    ENDPOINT = "/pktx/spotify/{spotify_id}"
+
+    def get_analysis(self, spotify_id):
+        try:
+            conn = http.client.HTTPSConnection(self.HOST)
+            headers = {
+                "x-rapidapi-key":  RAPIDAPI_KEY,
+                "x-rapidapi-host": self.HOST,
+                "Content-Type":    "application/json",
+            }
+            conn.request(
+                "GET",
+                self.ENDPOINT.format(spotify_id=spotify_id),
+                headers=headers,
+            )
+            res  = conn.getresponse()
+            data = res.read()
+
+            if res.status == 404:
+                return None
+
+            parsed = json.loads(data.decode("utf-8"))
+            return {
+                "key":   parsed.get("key", ""),
+                "mode":  parsed.get("mode", "major"),
+                "tempo": parsed.get("tempo", 0),
+            }
+        except Exception:
+            return None
