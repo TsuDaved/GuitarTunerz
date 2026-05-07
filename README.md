@@ -1,6 +1,6 @@
 # GuitarTunerz
 
-Repository for Project Week 3 - Guitar Tuning Device.
+Repository for Project Week 4 - Guitar Tuning Device.
 
 ## Project Overview
 
